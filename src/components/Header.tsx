@@ -111,7 +111,7 @@ export function Header({
               }`}
             />
             <KeyRound className="h-3 w-3" />
-            <span className="hidden sm:inline">{isLive ? 'Gemini Live' : 'Sandbox'}</span>
+            <span className="hidden sm:inline">{isLive ? 'Gemini Live' : 'Local RAG'}</span>
           </button>
         </div>
       </div>

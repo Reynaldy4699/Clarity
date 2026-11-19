@@ -70,6 +70,24 @@ function estimateCostUsd(modelId: string, promptTokens: number, completionTokens
   )
 }
 
+/**
+ * Removes markdown asterisks outside fenced and inline code blocks so responses
+ * stay clean and never expose raw '*' characters.
+ */
+export function sanitizeResponseText(text: string): string {
+  const segments = text.split(/(```[\s\S]*?```|`[^`]+`)/g)
+  return segments
+    .map((segment) => {
+      if (segment.startsWith('```') || segment.startsWith('`')) {
+        return segment
+      }
+      return segment
+        .replace(/^(\s*)\*\s+/gm, '$1- ')
+        .replace(/\*/g, '')
+    })
+    .join('')
+}
+
 interface GeminiPart {
   text?: string
   functionCall?: { name: string; args?: Record<string, unknown> }
@@ -250,59 +268,56 @@ async function runSandboxAssistant(options: {
     const parsed = JSON.parse(first.result) as Record<string, unknown>
     if (first.name === 'fetch_github_user' && !parsed.error) {
       lines.push(
-        `Here is the live GitHub REST API summary for **@${String(parsed.login)}** (${String(parsed.name)}):`,
+        `### GitHub Profile: @${String(parsed.login)} (${String(parsed.name)})`,
         '',
-        `- **Public Repositories:** ${String(parsed.publicRepos)}`,
-        `- **Followers / Following:** ${String(parsed.followers)} / ${String(parsed.following)}`,
-        `- **Bio:** ${String(parsed.bio)}`,
-        `- **Profile:** ${String(parsed.url)}`,
+        `- Public Repositories: ${String(parsed.publicRepos)}`,
+        `- Followers / Following: ${String(parsed.followers)} / ${String(parsed.following)}`,
+        `- Bio: ${String(parsed.bio)}`,
+        `- Profile: ${String(parsed.url)}`,
       )
     } else if (first.name === 'estimate_llm_cost' && !parsed.error) {
       lines.push(
-        `Estimated cost projection on **${String(parsed.model)}** ($${String(parsed.inputRatePer1M)} / 1M input, $${String(parsed.outputRatePer1M)} / 1M output):`,
+        `### Cost Projection (${String(parsed.model)})`,
         '',
-        `- **Per Request:** $${String(parsed.perRequestUsd)}`,
-        `- **Daily (2,000 reqs):** $${String(parsed.dailyCostUsd)}`,
-        `- **Monthly (30 days):** **$${String(parsed.monthlyCostUsd)}**`,
+        `- Rate: $${String(parsed.inputRatePer1M)} / 1M input, $${String(parsed.outputRatePer1M)} / 1M output`,
+        `- Per Request: $${String(parsed.perRequestUsd)}`,
+        `- Daily (2,000 reqs): $${String(parsed.dailyCostUsd)}`,
+        `- Monthly (30 days): $${String(parsed.monthlyCostUsd)}`,
       )
     } else if (first.name === 'inspect_knowledge_base') {
       lines.push(
-        `Knowledge Base status (**${String(parsed.retrievalMode)}**):`,
-        `- **Indexed Chunks:** ${String(parsed.totalChunks)}`,
-        `- **Vector Embedded Chunks:** ${String(parsed.embeddedChunks)}`,
+        `### Knowledge Base Status (${String(parsed.retrievalMode)})`,
+        `- Indexed Chunks: ${String(parsed.totalChunks)}`,
+        `- Vector Embedded Chunks: ${String(parsed.embeddedChunks)}`,
       )
     } else {
       lines.push(`Tool \`${first.name}\` returned: \`${first.result}\``)
     }
   } else if (isGreeting) {
     lines.push(
-      `Hi! I'm **Clarity**, a minimalist RAG & AI agent assistant currently running in **Sandbox Mode** (${options.documents.filter((d) => d.enabled).length} docs · ${options.chunks.length} indexed chunks).`,
+      `Hi! I'm Clarity, a minimalist RAG & AI assistant (${options.documents.filter((d) => d.enabled).length} active docs · ${options.chunks.length} indexed chunks).`,
       '',
-      'Here is what you can test right now without an API key:',
-      '- **Document Q&A (BM25 RAG):** Ask about _webhook retries_, _API rate limits (120 RPM)_, _14-day refund policy_, or _RAG architecture trade-offs_.',
-      '- **Live REST Tool Calling:** Try `"Look up GitHub profile Reynaldy4699"` or `"Estimate monthly cost for Gemini 3 Flash"`.',
-      '- **Custom Docs & Eval:** Upload `.md`/`.txt` files in **Knowledge**, or run the 4-case benchmark in **Telemetry & Eval**.',
-      '',
-      '_For open-ended conversation and Gemini vector embeddings (`gemini-embedding-001`), click **Sandbox** in the top-right bar to connect a Gemini API key._',
+      'Here is what you can try right away:',
+      '- Document Q&A (RAG): Ask about webhook retries, API rate limits (120 RPM), 14-day refund policy, or RAG architecture trade-offs.',
+      '- Live REST Tool Calling: Try "Look up GitHub profile Reynaldy4699" or "Estimate monthly cost for Gemini 3 Flash".',
+      '- Custom Docs & Eval: Upload .md/.txt files in Knowledge, or run the 4-case benchmark in Telemetry & Eval.',
     )
   } else if (options.citations.length > 0 && options.citations[0].score >= 0.22) {
     lines.push('Based on the retrieved knowledge base chunks:')
     lines.push('')
     options.citations.slice(0, 2).forEach((item) => {
       const snippet = item.chunk.text.replace(/^#+\s*/gm, '').trim()
-      lines.push(`- **[${item.chunk.docTitle} · Chunk ${item.chunk.index}]** ${snippet}`)
+      lines.push(`- [${item.chunk.docTitle} · Chunk ${item.chunk.index}] ${snippet}`)
     })
-    lines.push('')
-    lines.push('_Running in local Sandbox Mode (BM25 retrieval). Connect a Gemini API key in the top bar for live LLM synthesis._')
   } else {
     lines.push(
       'The active knowledge base documents do not contain reliable information to answer that question.',
       '',
-      'Try asking about **webhook retries**, **API rate limits**, **refund policy**, **RAG trade-offs**, or connect a Gemini API key for open-ended reasoning.',
+      'Try asking about webhook retries, API rate limits, refund policy, RAG trade-offs, or a GitHub profile lookup.',
     )
   }
 
-  const fullText = lines.join('\n')
+  const fullText = sanitizeResponseText(lines.join('\n'))
   const words = fullText.split(/(\s+)/)
   for (const token of words) {
     if (options.signal?.aborted) break
@@ -398,7 +413,7 @@ export async function runAssistantTurn(params: RunAssistantParams): Promise<{
           .join('\n\n')}\n---`
       : '\n\n---\nRETRIEVED KNOWLEDGE CONTEXT: None matched.\n---'
 
-  const fullSystemPrompt = `${params.systemPrompt}${contextBlock}`
+  const fullSystemPrompt = `${params.systemPrompt}\nFormatting constraint: Do not output any asterisk (*) characters anywhere in prose or lists; use '-' for bullets.${contextBlock}`
 
   const contents: GeminiContent[] = params.history
     .filter((m) => !m.isStreaming && !m.error && m.content.trim().length > 0)
@@ -444,7 +459,7 @@ export async function runAssistantTurn(params: RunAssistantParams): Promise<{
         signal: params.signal,
         onTextDelta: (delta) => {
           accumulated += delta
-          params.onToken(accumulated)
+          params.onToken(sanitizeResponseText(accumulated))
         },
       })
       activeModel = candidateModel
@@ -515,13 +530,14 @@ export async function runAssistantTurn(params: RunAssistantParams): Promise<{
     turnResult = followUp
   }
 
+  const sanitizedText = sanitizeResponseText(turnResult.text)
   const finalPromptTokens =
     totalPromptTokens || Math.round((fullSystemPrompt.length + params.userQuery.length) / 4)
   const finalCompletionTokens =
-    totalCompletionTokens || Math.max(1, Math.round(turnResult.text.length / 4))
+    totalCompletionTokens || Math.max(1, Math.round(sanitizedText.length / 4))
 
   return {
-    text: turnResult.text,
+    text: sanitizedText,
     citations,
     toolCalls: allToolCalls,
     telemetry: {

@@ -1,6 +1,8 @@
 import { Check, Copy } from 'lucide-react'
 import { useState } from 'react'
 
+import { sanitizeResponseText } from '../services/gemini'
+
 function renderInline(text: string): React.ReactNode[] {
   const tokens = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\)|_[^_]+_)/g)
   return tokens.map((token, idx) => {
@@ -80,7 +82,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
 }
 
 export function MarkdownText({ content }: { content: string }) {
-  const blocks = content.split(/(```[\s\S]*?```)/g)
+  const blocks = sanitizeResponseText(content).split(/(```[\s\S]*?```)/g)
 
   return (
     <div className="space-y-2 text-[14.5px] leading-[1.68] text-[#27272a]">
