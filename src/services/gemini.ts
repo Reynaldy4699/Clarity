@@ -209,7 +209,9 @@ async function runSandboxAssistant(options: {
 
   // Trigger real REST API tool calls in Sandbox Mode when relevant
   if (options.toolsEnabled) {
-    const ghMatch = q.match(/github(?:\s+profile|\s+user)?\s+["'@]?([a-zA-Z0-9-]{1,39})["']?/i)
+    const ghMatch = lower.includes('github')
+      ? q.match(/github(?:\.com\/|\s+(?:profile|user|account)\s+|\s+)["'@]?([a-zA-Z0-9-]{1,39})["']?/i)
+      : null
     if (ghMatch?.[1]) {
       const trace = await executeToolCall(
         'fetch_github_user',
@@ -233,6 +235,14 @@ async function runSandboxAssistant(options: {
       toolCalls.push(trace)
     }
   }
+
+  const isGreeting =
+    /^(hi|hey|hello|halo|hai|yo|hiya|good\s+(morning|afternoon|evening)|selamat\s+(pagi|siang|sore|malam))[\s!?.,]*$/i.test(
+      q,
+    ) ||
+    /(what can you do|who are you|how do you work|what are your capabilities|help me|introduce yourself|bisa apa|siapa kamu)/i.test(
+      lower,
+    )
 
   const lines: string[] = []
   if (toolCalls.length > 0) {
@@ -264,6 +274,17 @@ async function runSandboxAssistant(options: {
     } else {
       lines.push(`Tool \`${first.name}\` returned: \`${first.result}\``)
     }
+  } else if (isGreeting) {
+    lines.push(
+      `Hi! I'm **Clarity**, a minimalist RAG & AI agent assistant currently running in **Sandbox Mode** (${options.documents.filter((d) => d.enabled).length} docs · ${options.chunks.length} indexed chunks).`,
+      '',
+      'Here is what you can test right now without an API key:',
+      '- **Document Q&A (BM25 RAG):** Ask about _webhook retries_, _API rate limits (120 RPM)_, _14-day refund policy_, or _RAG architecture trade-offs_.',
+      '- **Live REST Tool Calling:** Try `"Look up GitHub profile Reynaldy4699"` or `"Estimate monthly cost for Gemini 3 Flash"`.',
+      '- **Custom Docs & Eval:** Upload `.md`/`.txt` files in **Knowledge**, or run the 4-case benchmark in **Telemetry & Eval**.',
+      '',
+      '_For open-ended conversation and Gemini vector embeddings (`gemini-embedding-001`), click **Sandbox** in the top-right bar to connect a Gemini API key._',
+    )
   } else if (options.citations.length > 0 && options.citations[0].score >= 0.22) {
     lines.push('Based on the retrieved knowledge base chunks:')
     lines.push('')
