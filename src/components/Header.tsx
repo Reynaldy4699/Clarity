@@ -1,4 +1,4 @@
-import { Activity, Database, KeyRound, MessageSquare, Sparkles } from 'lucide-react'
+import { Activity, Database, MessageSquare, Sparkles } from 'lucide-react'
 import { GEMINI_MODELS } from '../data/presets'
 import type { ModelId, TabId } from '../types'
 
@@ -8,8 +8,6 @@ interface HeaderProps {
   selectedModel: ModelId
   onSelectModel: (model: ModelId) => void
   hasApiKey: boolean
-  forceSandbox: boolean
-  onOpenApiModal: () => void
   docCount: number
 }
 
@@ -25,11 +23,9 @@ export function Header({
   selectedModel,
   onSelectModel,
   hasApiKey,
-  forceSandbox,
-  onOpenApiModal,
   docCount,
 }: HeaderProps) {
-  const isLive = hasApiKey && !forceSandbox
+  const isLive = hasApiKey
 
   return (
     <header className="sticky top-0 z-30 border-b border-[#e4e4e7]/80 bg-[#fafafa]/85 backdrop-blur-md">
@@ -96,23 +92,20 @@ export function Header({
             ))}
           </select>
 
-          <button
-            type="button"
-            onClick={onOpenApiModal}
-            className={`minimal-btn inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium ${
+          <div
+            className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium ${
               isLive
-                ? 'border-emerald-200 bg-emerald-50/70 text-emerald-800 hover:border-emerald-300 hover:bg-emerald-50'
-                : 'border-[#e4e4e7] bg-white text-[#52525b] hover:border-[#111111] hover:text-[#111111]'
+                ? 'border-emerald-200 bg-emerald-50/70 text-emerald-800'
+                : 'border-[#e4e4e7] bg-white text-[#52525b]'
             }`}
           >
             <span
               className={`h-1.5 w-1.5 rounded-full ${
-                isLive ? 'animate-pulse-ring bg-emerald-500' : 'bg-amber-500'
+                isLive ? 'animate-pulse-ring bg-emerald-500' : 'bg-[#111111]'
               }`}
             />
-            <KeyRound className="h-3 w-3" />
-            <span className="hidden sm:inline">{isLive ? 'Gemini Live' : 'Local RAG'}</span>
-          </button>
+            <span className="hidden sm:inline">{isLive ? 'Gemini Live' : 'RAG Engine'}</span>
+          </div>
         </div>
       </div>
     </header>

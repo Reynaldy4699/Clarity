@@ -137,24 +137,22 @@ export function KnowledgeView({
             <span>Add Note</span>
           </button>
 
-          <button
-            type="button"
-            disabled={isEmbedding || !hasLiveKey || chunks.length === 0}
-            onClick={onEmbedAll}
-            title={
-              hasLiveKey
-                ? 'Compute dense embeddings using gemini-embedding-001'
-                : 'Connect a Gemini API key to compute dense embeddings'
-            }
-            className="minimal-btn inline-flex items-center gap-1.5 rounded-full bg-[#111111] px-4 py-2 text-[12.5px] font-medium text-white hover:bg-[#27272a] disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>
-              {isEmbedding
-                ? 'Embedding...'
-                : `Embed Chunks (${embeddedCount}/${chunks.length})`}
-            </span>
-          </button>
+          {hasLiveKey && (
+            <button
+              type="button"
+              disabled={isEmbedding || chunks.length === 0}
+              onClick={onEmbedAll}
+              title="Compute dense embeddings using gemini-embedding-001"
+              className="minimal-btn inline-flex items-center gap-1.5 rounded-full bg-[#111111] px-4 py-2 text-[12.5px] font-medium text-white hover:bg-[#27272a] disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>
+                {isEmbedding
+                  ? 'Embedding...'
+                  : `Embed Chunks (${embeddedCount}/${chunks.length})`}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 

@@ -11,55 +11,20 @@ import type {
 import { embedSingleQuery, retrieveRelevantChunks } from './rag'
 import { executeToolCall, GEMINI_TOOL_DECLARATIONS } from './tools'
 
-const KEY_STORAGE_NAME = 'clarity_gemini_api_key'
+const LEGACY_KEY_STORAGE_NAME = 'clarity_gemini_api_key'
 
-export function getStoredApiKey(): string {
+export function resolveEffectiveApiKey(): { key: string; source: 'env' | 'none' } {
+  // Wipe any previously stored browser key so keys are never persisted or exposed in DOM/storage.
   try {
-    return localStorage.getItem(KEY_STORAGE_NAME) ?? ''
-  } catch {
-    return ''
-  }
-}
-
-export function saveStoredApiKey(key: string): void {
-  try {
-    const trimmed = key.trim()
-    if (trimmed) {
-      localStorage.setItem(KEY_STORAGE_NAME, trimmed)
-    } else {
-      localStorage.removeItem(KEY_STORAGE_NAME)
-    }
+    localStorage.removeItem(LEGACY_KEY_STORAGE_NAME)
   } catch {
     // Ignore storage errors in restricted contexts
   }
-}
-
-export function resolveEffectiveApiKey(): { key: string; source: 'browser' | 'env' | 'none' } {
-  const stored = getStoredApiKey().trim()
-  if (stored) return { key: stored, source: 'browser' }
 
   const envKey = (import.meta.env.VITE_GEMINI_API_KEY as string | undefined)?.trim() ?? ''
   if (envKey) return { key: envKey, source: 'env' }
 
   return { key: '', source: 'none' }
-}
-
-export async function testGeminiConnection(apiKey: string): Promise<{ ok: boolean; message: string }> {
-  const key = apiKey.trim()
-  if (!key) return { ok: false, message: 'API key is empty.' }
-
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?pageSize=5&key=${encodeURIComponent(key)}`,
-    )
-    if (!res.ok) {
-      const text = await res.text()
-      return { ok: false, message: `HTTP ${res.status}: ${text.slice(0, 120)}` }
-    }
-    return { ok: true, message: 'Connected to Gemini API (200 OK).' }
-  } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : 'Network error' }
-  }
 }
 
 function estimateCostUsd(modelId: string, promptTokens: number, completionTokens: number): number {

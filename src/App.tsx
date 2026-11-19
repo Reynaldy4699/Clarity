@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { ApiKeyModal } from './components/ApiKeyModal'
 import { ChatView } from './components/ChatView'
 import { Header } from './components/Header'
 import { KnowledgeView } from './components/KnowledgeView'
@@ -39,14 +38,7 @@ export function App() {
   const [isEmbedding, setIsEmbedding] = useState(false)
   const [embedStatus, setEmbedStatus] = useState<string | null>(null)
 
-  const [keyVersion, setKeyVersion] = useState(0)
-  const effectiveKey = useMemo(() => {
-    void keyVersion
-    return resolveEffectiveApiKey()
-  }, [keyVersion])
-
-  const [forceSandbox, setForceSandbox] = useState<boolean>(false)
-  const [isApiModalOpen, setIsApiModalOpen] = useState(false)
+  const effectiveKey = useMemo(() => resolveEffectiveApiKey(), [])
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
@@ -71,7 +63,7 @@ export function App() {
     [documents],
   )
 
-  const hasLiveKey = Boolean(effectiveKey.key) && !forceSandbox
+  const hasLiveKey = Boolean(effectiveKey.key)
 
   const handleSendMessage = useCallback(
     async (text: string) => {
@@ -110,7 +102,7 @@ export function App() {
           ragEnabled: ragConfig.enabled,
           topK: ragConfig.topK,
           toolsEnabled,
-          forceSandbox,
+          forceSandbox: !hasLiveKey,
           documents,
           chunks,
           signal: controller.signal,
@@ -176,7 +168,7 @@ export function App() {
       ragConfig.enabled,
       ragConfig.topK,
       toolsEnabled,
-      forceSandbox,
+      hasLiveKey,
       documents,
       chunks,
     ],
@@ -218,7 +210,7 @@ export function App() {
         ragEnabled: tc.requiresRag,
         topK: ragConfig.topK,
         toolsEnabled: false,
-        forceSandbox,
+        forceSandbox: !hasLiveKey,
         documents,
         chunks,
         onToken: () => {},
@@ -257,8 +249,6 @@ export function App() {
         selectedModel={selectedModel}
         onSelectModel={setSelectedModel}
         hasApiKey={Boolean(effectiveKey.key)}
-        forceSandbox={forceSandbox}
-        onOpenApiModal={() => setIsApiModalOpen(true)}
         docCount={enabledDocCount}
       />
 
@@ -326,14 +316,6 @@ export function App() {
           />
         )}
       </main>
-
-      <ApiKeyModal
-        isOpen={isApiModalOpen}
-        onClose={() => setIsApiModalOpen(false)}
-        forceSandbox={forceSandbox}
-        onToggleSandbox={setForceSandbox}
-        onKeyUpdated={() => setKeyVersion((v) => v + 1)}
-      />
     </div>
   )
 }
